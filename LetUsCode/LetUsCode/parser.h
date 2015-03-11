@@ -9,12 +9,6 @@
 #include <assert.h>
 #include <vector>
 
-
-//some definitions
-//lut space..
-#define XLIM 100
-#define YLIM 100
-
 //*********DATA TYPES**********
 
 //ICE40 LUT
@@ -37,11 +31,10 @@ typedef struct PLD{
 }PLD;
 
 //prototypes..
-int estimateLUT(char*);
-void wordify(char* line, std::vector<std::string> &);
+std::vector<PLD> generatePLDs(char*);
+void printPLDs(std::vector<PLD>&);
 char* readNextLine(std::ifstream&);
-PLD* generatePLDs(char*, int*);
-void printPLDs(PLD*, int);
+void wordify(char* line, std::vector<std::string> &);
 
 //macros..
 #define print(n) printf("%s\n", n); 
