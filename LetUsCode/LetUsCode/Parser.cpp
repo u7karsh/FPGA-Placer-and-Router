@@ -115,6 +115,11 @@ std::vector<PLD> generatePLDs(char* fileName, std::map<std::string, int> &portHa
 						PLD_array.at(pld_id).dff.data = portHashMap[words.at(3).c_str() + 2]; //data
 						PLD_array.at(pld_id).dff.output = portHashMap[words.at(4).c_str() + 2]; //output
 
+						//register this port id to PLD hash map
+						PortPLDHashMap.insert(std::make_pair(portHashMap[words.at(2).c_str() + 2], pld_id));
+						PortPLDHashMap.insert(std::make_pair(portHashMap[words.at(3).c_str() + 2], pld_id));
+						PortPLDHashMap.insert(std::make_pair(portHashMap[words.at(4).c_str() + 2], pld_id));
+
 						PLD_array.at(pld_id).dff.enabled = true; //enable it
 					}
 					else{
@@ -125,6 +130,14 @@ std::vector<PLD> generatePLDs(char* fileName, std::map<std::string, int> &portHa
 				}
 				else if (!words.at(0).compare("param") && !words.at(1).compare("LUT_INIT")){
 					strcpy(PLD_array.at(PLDID - 1).lut.initVal, words.at(2).c_str());
+				}
+				else if (!words.at(0).compare("inputs") || !words.at(0).compare("outputs")){
+					//register these ports to hashmap
+					for (int i = 1; i < words.size(); i++){
+						if (portHashMap.find(words.at(i).c_str()) == portHashMap.end()){
+							portHashMap[words.at(i).c_str()] = portID++;
+						}
+					}
 				}
 				else continue;
 			}

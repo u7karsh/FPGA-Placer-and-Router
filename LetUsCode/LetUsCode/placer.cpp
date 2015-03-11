@@ -1,6 +1,7 @@
 #include "placer.h"
 
 ///**************Functional definitions*********
+
 void initCoordinates(std::vector<std::vector<int>> &coordinates, int count){
 	//init the grid
 	for (int i = 0; i < XLIM; i++){
@@ -39,21 +40,35 @@ int getDeviceDistance(std::vector<std::vector<int>> &coor, int id1, int id2){
 	return deltax + deltay;
 }
 
-int getPlacementCost(std::vector<std::vector<int>> &coordinates, std::vector<PLD> &PLD_array){
+int getPlacementCost(std::vector<std::vector<int>> &coordinates, std::vector<PLD> &PLD_array, std::multimap<int, int> &PortPLDHashMap){
 	int cost = 0;
 	for (int i = 0; i< coordinates.size(); i++){
-			//LUT COST
-			//4 input wire cost
-			for (int j = 0; j < 4; j++){
-				int tempPort = PLD_array.at(i).lut.input[j];
-				//find devices having tempPort
-				std::pair <std::multimap<int, int>::iterator, std::multimap<int, int>::iterator> ret;
-				ret = PortDeviceHashMap.equal_range(tempPort);
-				for (std::multimap<int, int>::iterator it = ret.first; it != ret.second; ++it)
-					if (it->second < coordinates.size())
-						cost = cost + getDeviceDistance(it->second, i);
-			}
+		//LUT COST
+
+		//4 input wire cost
+		for (int j = 0; j < 4; j++){
+			int tempPort = PLD_array.at(i).lut.input[j];
+			//find devices having tempPort
+			std::pair <std::multimap<int, int>::iterator, std::multimap<int, int>::iterator> ret;
+			ret = PortPLDHashMap.equal_range(tempPort);
+			for (std::multimap<int, int>::iterator it = ret.first; it != ret.second; ++it)
+				if (it->second < coordinates.size())
+					cost = cost + getDeviceDistance(coordinates, it->second, i);
 		}
+		//1 output wire cost
+		int tempPort = PLD_array.at(i).lut.output;
+		//find devices having tempPort
+		std::pair <std::multimap<int, int>::iterator, std::multimap<int, int>::iterator> ret;
+		ret = PortPLDHashMap.equal_range(tempPort);
+		for (std::multimap<int, int>::iterator it = ret.first; it != ret.second; ++it)
+			if (it->second < coordinates.size())
+				cost = cost + getDeviceDistance(coordinates, it->second, i);
+
+		//DFF COST
+		if (PLD_array.at(i).dff.enabled){
+
+		}
+
 	}
 	return cost / 2; //removing twice calculated costs
 	//return abs(maxy - miny) + abs(maxx - minx); //semi parameter
