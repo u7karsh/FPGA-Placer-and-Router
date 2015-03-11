@@ -2,8 +2,9 @@
 
 int main(){
 	char fileName[] = "sb_up3down5.blif";
-	//Node graph generate
-	std::vector<PLD> graph = generatePLDs(fileName);
+	std::map<std::string, int> portHashMap;
+	std::multimap<int, int> PortPLDHashMap;
+	std::vector<PLD> graph = generatePLDs(fileName, portHashMap, PortPLDHashMap);
 	printPLDs(graph);
 
 	while (1); //for debugging purpose only!

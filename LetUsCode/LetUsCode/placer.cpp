@@ -1,5 +1,4 @@
 #include "placer.h"
-#include<array>
 
 ///**************Functional definitions*********
 void initCoordinates(std::vector<std::vector<int>> &coordinates, int count){
@@ -40,20 +39,18 @@ int getDeviceDistance(std::vector<std::vector<int>> &coor, int id1, int id2){
 	return deltax + deltay;
 }
 
-int getPlacementCost(std::vector<std::vector<int>> &coordinates, ){
-	int minx = XLIM, miny = YLIM, maxx = 0, maxy = 0;
+int getPlacementCost(std::vector<std::vector<int>> &coordinates, std::vector<PLD> &PLD_array){
 	int cost = 0;
 	for (int i = 0; i< coordinates.size(); i++){
-		if (!strcmp(graph[i].type, "LUT")){
-			for (int j = 0; j < 5; j++){
-				int tempPort;
-				if (j<4)	tempPort = graph[i].inPort[j];
-				else tempPort = graph[i].outPort;
-				//find device of tempPort
+			//LUT COST
+			//4 input wire cost
+			for (int j = 0; j < 4; j++){
+				int tempPort = PLD_array.at(i).lut.input[j];
+				//find devices having tempPort
 				std::pair <std::multimap<int, int>::iterator, std::multimap<int, int>::iterator> ret;
 				ret = PortDeviceHashMap.equal_range(tempPort);
 				for (std::multimap<int, int>::iterator it = ret.first; it != ret.second; ++it)
-					if (it->second < DEVICE_COUNT)
+					if (it->second < coordinates.size())
 						cost = cost + getDeviceDistance(it->second, i);
 			}
 		}

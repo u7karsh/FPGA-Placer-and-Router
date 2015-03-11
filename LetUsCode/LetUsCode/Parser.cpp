@@ -1,10 +1,5 @@
 #include "parser.h"
 
-//hashmaps..
-std::map<std::string, int> portHashMap;
-std::multimap<int, int> PortPLDHashMap;
-
-
 ///**************Functional definitions**************
 void wordify(char* line, std::vector<std::string> &words){
 	char* pch;
@@ -29,7 +24,7 @@ char* readNextLine(std::ifstream& fp){
 	else return NULL;
 }
 
-std::vector<PLD> generatePLDs(char* fileName){
+std::vector<PLD> generatePLDs(char* fileName, std::map<std::string, int> &portHashMap, std::multimap<int, int> &PortPLDHashMap){
 	//init PLD and port ID
 	int PLDID = 0;
 	int portID = 0;

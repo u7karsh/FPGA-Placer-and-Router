@@ -7,6 +7,7 @@
 #include <math.h>
 #include <assert.h>
 #include <vector>
+#include "parser.h"
 
 //lut space
 #define XLIM 100

@@ -31,7 +31,7 @@ typedef struct PLD{
 }PLD;
 
 //prototypes..
-std::vector<PLD> generatePLDs(char*);
+std::vector<PLD> generatePLDs(char*, std::map<std::string, int> &, std::multimap<int, int> &);
 void printPLDs(std::vector<PLD>&);
 char* readNextLine(std::ifstream&);
 void wordify(char* line, std::vector<std::string> &);
