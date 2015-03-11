@@ -1,7 +1,8 @@
 #include "placer.h"
 
-///**************Functional definitions*********
+int grid[XLIM][YLIM];
 
+///**************Functional definitions*********
 void initCoordinates(std::vector<std::vector<int>> &coordinates, int count){
 	//init the grid
 	for (int i = 0; i < XLIM; i++){
@@ -66,22 +67,30 @@ int getPlacementCost(std::vector<std::vector<int>> &coordinates, std::vector<PLD
 
 		//DFF COST
 		if (PLD_array.at(i).dff.enabled){
-
+			//clock wire cost
+			int tempPort = PLD_array.at(i).dff.clock;
+			//find devices having tempPort
+			std::pair <std::multimap<int, int>::iterator, std::multimap<int, int>::iterator> ret;
+			ret = PortPLDHashMap.equal_range(tempPort);
+			for (std::multimap<int, int>::iterator it = ret.first; it != ret.second; ++it)
+				if (it->second < coordinates.size())
+					cost = cost + getDeviceDistance(coordinates, it->second, i);
+			//output wire cost
+			tempPort = PLD_array.at(i).dff.output;
+			//find devices having tempPort
+			ret = PortPLDHashMap.equal_range(tempPort);
+			for (std::multimap<int, int>::iterator it = ret.first; it != ret.second; ++it)
+				if (it->second < coordinates.size())
+					cost = cost + getDeviceDistance(coordinates, it->second, i);
+			//input wire is free of cost
+			cost = cost + 0;
 		}
 
 	}
 	return cost / 2; //removing twice calculated costs
-	//return abs(maxy - miny) + abs(maxx - minx); //semi parameter
 }
 
-void copyContents(int** best, int** coordinates){
-	for (int i = 0; i<DEVICE_COUNT; i++){
-		best[i][0] = coordinates[i][0];
-		best[i][1] = coordinates[i][1];
-	}
-}
-
-void swap(int pos1x, int pos1y, int pos2x, int pos2y){
+void swap(std::vector<std::vector<int>> &coordinates, int pos1x, int pos1y, int pos2x, int pos2y){
 	int id1 = grid[pos1x][pos1y];
 	int id2 = grid[pos2x][pos2y];
 	grid[pos1x][pos1y] = -1;
@@ -89,7 +98,6 @@ void swap(int pos1x, int pos1y, int pos2x, int pos2y){
 	if (id1<0 && id2<0)
 		return;
 	else{
-
 		if (id1 != -1){
 			coordinates[id1][0] = pos2x;
 			coordinates[id1][1] = pos2y;
@@ -103,26 +111,16 @@ void swap(int pos1x, int pos1y, int pos2x, int pos2y){
 	}
 }
 
-void SA(){
-	//init temperature
-	double temp = 1000;
-	// Cooling rate
-	double coolingRate = 0.01;
-	//iterations per degree temperature
-	int iterations = 10;
-
+void SA(std::vector<PLD> &PLD_array, std::map<std::string, int> &portHashMap, std::multimap<int, int> &PortPLDHashMap, double temp, double coolingRate, int iterations){
+	//init temperature, cooling rate, iterations per degree
+	std::vector<std::vector<int>> coordinates;
 	// Initialize intial solution
-	initCoordinates();
+	initCoordinates(coordinates, PLD_array.size());
 
-	// Set as current
-	int** best;
-	best = new int*[DEVICE_COUNT];
-	for (int i = 0; i < DEVICE_COUNT; i++)
-		best[i] = new int[2];
+	// Init best placement
+	std::vector<std::vector<int>> best(coordinates);
 
-	copyContents(best, coordinates);
-
-	int bestCost = getPlacementCost(best);
+	int bestCost = getPlacementCost(best, PLD_array, PortPLDHashMap);
 	printf("Initial Solution Cost: %d\n", bestCost);
 	// Loop until system has cooled
 	int iterationCount = (1 + ((log(1 / temp)) / log(1 - coolingRate))*iterations);
@@ -136,11 +134,9 @@ void SA(){
 				++fraction;
 				printf("%d%%...\n", fraction * 10);
 			}
-			int** temporary;
-			temporary = new int*[DEVICE_COUNT];
-			for (int i = 0; i < DEVICE_COUNT; i++)
-				temporary[i] = new int[2];
-			copyContents(temporary, coordinates);
+			
+			//get a temporary vector
+			std::vector<std::vector<int>> temporary(coordinates);
 
 			// Get 2 random positions in the grid
 			int Pos1x, Pos1y, Pos2x, Pos2y;
@@ -155,20 +151,20 @@ void SA(){
 				}
 			}
 			// Swap random places
-			swap(Pos1x, Pos1y, Pos2x, Pos2y);
+			swap(coordinates, Pos1x, Pos1y, Pos2x, Pos2y);
 
 			// Get energy of solutions
-			int E1 = getPlacementCost(temporary);
-			int E2 = getPlacementCost(coordinates);
+			int E1 = getPlacementCost(temporary, PLD_array, PortPLDHashMap);
+			int E2 = getPlacementCost(coordinates, PLD_array, PortPLDHashMap);
 
 			// Decide if we should accept the neighbour
 			if (!(acceptanceProbability(E1, E2, temp) > (rand() * 1.0) / RAND_MAX)) {
-				copyContents(coordinates, temporary); //undo the move
+				coordinates = temporary; //undo the move
 			}
 
 			// Keep track of the best solution found
 			if (E1 < bestCost) {
-				copyContents(best, temporary);
+				best = temporary;
 				bestCost = E1;
 			}
 		}//iterations ended
@@ -176,21 +172,4 @@ void SA(){
 		temp = temp*(1 - coolingRate);
 	}
 	printf("Final solution Cost: %d\n", bestCost);
-}
-
-
-int main(){
-	char fileName[] = "sb_up3down5.blif";
-
-	//Node graph generate
-	graph = createGraph(fileName, &DEVICE_COUNT);
-	printf("%d LUT's found\n", DEVICE_COUNT);
-	printGraph(graph, DEVICE_COUNT);
-	//apply placement by simulated annealing
-	print("");
-	print("*******SIMULATED ANNEALING PLACER********");
-	SA();
-
-	while (1); //for debugging purpose only!
-	return 0;
 }
