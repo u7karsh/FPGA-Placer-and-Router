@@ -305,9 +305,10 @@ void swap(int pos1x, int pos1y, int pos2x, int pos2y){
 void SA(){
 	//init temperature
 	double temp = 10000;
-
 	// Cooling rate
 	double coolingRate = 0.001;
+	//iterations per degree temperature
+	int iterations = 1000;
 
 	// Initialize intial solution
 	initCoordinates();
@@ -323,51 +324,52 @@ void SA(){
 	int bestCost = getPlacementCost(best);
 	printf("Initial Solution Cost: %d\n", bestCost);
 	// Loop until system has cooled
-	int iterationCount = 1 + ((log(1 / temp)) / log(1 - coolingRate));
+	int iterationCount = (1 + ((log(1 / temp)) / log(1 - coolingRate))*iterations);
 	int counter = 0;
 	int fraction = 0;
 	while (temp > 1) {
-		counter = (counter + 1) % (iterationCount / 10);
-		if (counter == 0){
-			++fraction;
-			printf("%d%%...\n", fraction * 10);
-		}
-		int** temporary;
-		temporary = new int*[DEVICE_COUNT];
-		for (int i = 0; i < DEVICE_COUNT; i++)
-			temporary[i] = new int[2];
-		copyContents(temporary, coordinates);
-
-		// Get 2 random positions in the grid
-		int Pos1x, Pos1y, Pos2x, Pos2y;
-		while (1){
-			Pos1x = (int)(rand() % XLIM);
-			Pos1y = (int)(rand() % YLIM);
-			Pos2x = (int)(rand() % XLIM);
-			Pos2y = (int)(rand() % YLIM);
-			if (Pos1x != Pos2x || Pos1y != Pos2y){
-				if (grid[Pos1x][Pos1y] > 0 || grid[Pos2x][Pos2y] > 0)
-					break;
+		for (int iter = 0; iter < iterations; iter++){
+			counter = (counter + 1) % (iterationCount / 10);
+			if (counter == 0){
+				++fraction;
+				printf("%d%%...\n", fraction * 10);
 			}
-		}
-		// Swap random places
-		swap(Pos1x, Pos1y, Pos2x, Pos2y);
+			int** temporary;
+			temporary = new int*[DEVICE_COUNT];
+			for (int i = 0; i < DEVICE_COUNT; i++)
+				temporary[i] = new int[2];
+			copyContents(temporary, coordinates);
 
-		// Get energy of solutions
-		int E1 = getPlacementCost(temporary);
-		int E2 = getPlacementCost(coordinates);
+			// Get 2 random positions in the grid
+			int Pos1x, Pos1y, Pos2x, Pos2y;
+			while (1){
+				Pos1x = (int)(rand() % XLIM);
+				Pos1y = (int)(rand() % YLIM);
+				Pos2x = (int)(rand() % XLIM);
+				Pos2y = (int)(rand() % YLIM);
+				if (Pos1x != Pos2x || Pos1y != Pos2y){
+					if (grid[Pos1x][Pos1y] > 0 || grid[Pos2x][Pos2y] > 0)
+						break;
+				}
+			}
+			// Swap random places
+			swap(Pos1x, Pos1y, Pos2x, Pos2y);
 
-		// Decide if we should accept the neighbour
-		if (!(acceptanceProbability(E1, E2, temp) > (rand() * 1.0) / RAND_MAX)) {
-			copyContents(coordinates, temporary); //undo the move
-		}
+			// Get energy of solutions
+			int E1 = getPlacementCost(temporary);
+			int E2 = getPlacementCost(coordinates);
 
-		// Keep track of the best solution found
-		if (E1 < bestCost) {
-			copyContents(best, temporary);
-			bestCost = E1;
-		}
+			// Decide if we should accept the neighbour
+			if (!(acceptanceProbability(E1, E2, temp) > (rand() * 1.0) / RAND_MAX)) {
+				copyContents(coordinates, temporary); //undo the move
+			}
 
+			// Keep track of the best solution found
+			if (E1 < bestCost) {
+				copyContents(best, temporary);
+				bestCost = E1;
+			}
+		}//iterations ended
 		// Cool system
 		temp = temp*(1 - coolingRate);
 	}
