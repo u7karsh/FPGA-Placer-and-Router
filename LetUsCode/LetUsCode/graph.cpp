@@ -2,8 +2,8 @@
 #include <math.h>
 
 
-#define XLIM 200
-#define YLIM 200
+#define XLIM 100
+#define YLIM 100
 
 int **coordinates;
 int grid[XLIM][YLIM];
@@ -258,8 +258,10 @@ int getPlacementCost(int** temp){
 		if (coordinates[i][0] > maxy)
 			maxy = coordinates[i][1];
 		if (!strcmp(graph[i].type, "LUT")){
-			for (int j = 0; j < 4; j++){
-				int tempPort = graph[i].inPort[j];
+			for (int j = 0; j < 5; j++){
+				int tempPort;
+				if (j<4)	tempPort = graph[i].inPort[j];
+				else tempPort = graph[i].outPort;
 				//find device of tempPort
 				std::pair <std::multimap<int, int>::iterator, std::multimap<int, int>::iterator> ret;
 				ret = PortDeviceHashMap.equal_range(tempPort);
@@ -269,7 +271,7 @@ int getPlacementCost(int** temp){
 			}
 		}
 	}
-	return cost;
+	return cost/2; //removing twice calculated costs
 	//return abs(maxy - miny) + abs(maxx - minx); //semi parameter
 }
 
@@ -304,11 +306,11 @@ void swap(int pos1x, int pos1y, int pos2x, int pos2y){
 
 void SA(){
 	//init temperature
-	double temp = 10000;
+	double temp = 1000;
 	// Cooling rate
-	double coolingRate = 0.001;
+	double coolingRate = 0.01;
 	//iterations per degree temperature
-	int iterations = 1000;
+	int iterations = 10;
 
 	// Initialize intial solution
 	initCoordinates();
@@ -325,6 +327,7 @@ void SA(){
 	printf("Initial Solution Cost: %d\n", bestCost);
 	// Loop until system has cooled
 	int iterationCount = (1 + ((log(1 / temp)) / log(1 - coolingRate))*iterations);
+	printf("%d steps to perform\n", iterationCount);
 	int counter = 0;
 	int fraction = 0;
 	while (temp > 1) {
