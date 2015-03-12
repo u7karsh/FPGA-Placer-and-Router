@@ -1,19 +1,20 @@
 #include "placer.h"
 
-int grid[XLIM][YLIM];
+int grid[XLIM][YLIM][INDEX];
 
 ///**************Functional definitions*********
 void initCoordinates(std::vector<std::vector<int>> &coordinates, int count){
 	//init the grid
 	for (int i = 0; i < XLIM; i++){
 		for (int j = 0; j < YLIM; j++){
-			grid[i][j] = -1;
+			for (int k = 0; k < INDEX;k++)
+				grid[i][j][k] = -1;
 		}
 	}
 	//init coordinate master record
 	coordinates.resize(count);
 	for (int i = 0; i < count; i++)
-		coordinates[i].resize(2);
+		coordinates[i].resize(3);
 
 	//init random coordinates
 	for (int i = 0; i<count; i++){
@@ -21,11 +22,13 @@ void initCoordinates(std::vector<std::vector<int>> &coordinates, int count){
 		do{
 			x = rand() % XLIM;
 			y = rand() % YLIM;
-		} while (grid[x][y] != -1);
+			z = rand() % INDEX;
+		} while (grid[x][y][z] != -1);
 		//set to true
-		grid[x][y] = i;
+		grid[x][y][z] = i;
 		coordinates[i][0] = x;
 		coordinates[i][1] = y;
+		coordinates[i][2] = z;
 	}
 }
 
@@ -38,7 +41,8 @@ double acceptanceProbability(int energy, int newEnergy, double temperature){
 int getDeviceDistance(std::vector<std::vector<int>> &coor, int id1, int id2){
 	int deltax = abs(coor[id1][0] - coor[id2][0]);
 	int deltay = abs(coor[id1][1] - coor[id2][1]);
-	return deltax + deltay;
+	int deltaz = 0; //no cost in same PLD block
+	return deltax + deltay + deltaz;
 }
 
 int getPlacementCost(std::vector<std::vector<int>> &coordinates, std::vector<PLD> &PLD_array, std::multimap<int, int> &PortPLDHashMap){
@@ -90,30 +94,30 @@ int getPlacementCost(std::vector<std::vector<int>> &coordinates, std::vector<PLD
 	return cost / 2; //removing twice calculated costs
 }
 
-void swap(std::vector<std::vector<int>> &coordinates, int pos1x, int pos1y, int pos2x, int pos2y){
-	int id1 = grid[pos1x][pos1y];
-	int id2 = grid[pos2x][pos2y];
-	grid[pos1x][pos1y] = -1;
-	grid[pos2x][pos2y] = -1;
+void swap(std::vector<std::vector<int>> &coordinates, int pos1[], int pos2[]){
+	int id1 = grid[pos1[0]][pos1[1]][pos1[2]];
+	int id2 = grid[pos2[0]][pos2[1]][pos2[2]];
+	grid[pos1[0]][pos1[1]][pos1[2]] = -1;
+	grid[pos2[0]][pos2[1]][pos2[2]] = -1;
 	if (id1<0 && id2<0)
 		return;
 	else{
 		if (id1 != -1){
-			coordinates[id1][0] = pos2x;
-			coordinates[id1][1] = pos2y;
-			grid[pos2x][pos2y] = id1;
+			coordinates[id1][0] = pos2[0];
+			coordinates[id1][1] = pos2[1];
+			coordinates[id1][2] = pos2[2];
+			grid[pos2[0]][pos2[1]][pos2[2]] = id1;
 		}
 		if (id2 != -1){
-			coordinates[id2][0] = pos1x;
-			coordinates[id2][1] = pos1y;
-			grid[pos1x][pos1y] = id2;
+			coordinates[id2][0] = pos1[0];
+			coordinates[id2][1] = pos1[1];
+			coordinates[id2][2] = pos1[2];
+			grid[pos1[0]][pos1[1]][pos1[2]] = id2;
 		}
 	}
 }
 
-void SA(std::vector<PLD> &PLD_array, std::map<std::string, int> &portHashMap, std::multimap<int, int> &PortPLDHashMap, double temp, double coolingRate, int iterations){
-	//init temperature, cooling rate, iterations per degree
-	std::vector<std::vector<int>> coordinates;
+void SA(std::vector<PLD> &PLD_array, std::vector<std::vector<int>> &coordinates, std::map<std::string, int> &portHashMap, std::multimap<int, int> &PortPLDHashMap, double temp, double coolingRate, int iterations){
 	// Initialize intial solution
 	initCoordinates(coordinates, PLD_array.size());
 
@@ -139,19 +143,23 @@ void SA(std::vector<PLD> &PLD_array, std::map<std::string, int> &portHashMap, st
 			std::vector<std::vector<int>> temporary(coordinates);
 
 			// Get 2 random positions in the grid
-			int Pos1x, Pos1y, Pos2x, Pos2y;
+			int Pos1[3], Pos2[3];
 			while (1){
-				Pos1x = (int)(rand() % XLIM);
-				Pos1y = (int)(rand() % YLIM);
-				Pos2x = (int)(rand() % XLIM);
-				Pos2y = (int)(rand() % YLIM);
-				if (Pos1x != Pos2x || Pos1y != Pos2y){
-					if (grid[Pos1x][Pos1y] > 0 || grid[Pos2x][Pos2y] > 0)
+				//generate 1st random point
+				Pos1[0] = (int)(rand() % XLIM);
+				Pos1[1] = (int)(rand() % YLIM);
+				Pos1[2] = (int)(rand() % INDEX);
+				//generate 2nd random point
+				Pos2[0] = (int)(rand() % XLIM);
+				Pos2[1] = (int)(rand() % YLIM);
+				Pos2[2] = (int)(rand() % INDEX);
+				if (Pos1[0] != Pos2[0] || Pos1[1] != Pos2[1] || Pos1[2] != Pos2[2]){ //both coordinates to be swapped are not same!
+					if (grid[Pos1[0]][Pos1[1]][Pos1[2]] > 0 || grid[Pos2[0]][Pos2[1]][Pos2[2]] > 0) //atleast one of the coordinate picked must have a device registered
 						break;
 				}
 			}
 			// Swap random places
-			swap(coordinates, Pos1x, Pos1y, Pos2x, Pos2y);
+			swap(coordinates, Pos1, Pos2);
 
 			// Get energy of solutions
 			int E1 = getPlacementCost(temporary, PLD_array, PortPLDHashMap);
