@@ -1,5 +1,6 @@
 #include "placer.h"
 
+//grid containing info of devices at coordinates
 int grid[XLIM][YLIM][INDEX];
 
 ///**************Functional definitions*********
@@ -19,16 +20,18 @@ void initCoordinates(std::vector<std::vector<int>> &coordinates, int count){
 	//init random coordinates
 	for (int i = 0; i<count; i++){
 		int x, y, z;
-		do{
+		while (1){
 			x = rand() % XLIM;
 			y = rand() % YLIM;
 			z = rand() % INDEX;
-		} while (grid[x][y][z] != -1);
+			if (grid[x][y][z] == -1) //check for empty place
+				break;
+		}
 		//set to true
 		grid[x][y][z] = i;
-		coordinates[i][0] = x;
-		coordinates[i][1] = y;
-		coordinates[i][2] = z;
+		coordinates.at(i)[0] = x;
+		coordinates.at(i)[1] = y;
+		coordinates.at(i)[2] = z;
 	}
 }
 
@@ -39,8 +42,8 @@ double acceptanceProbability(int energy, int newEnergy, double temperature){
 }
 
 int getDeviceDistance(std::vector<std::vector<int>> &coor, int id1, int id2){
-	int deltax = abs(coor[id1][0] - coor[id2][0]);
-	int deltay = abs(coor[id1][1] - coor[id2][1]);
+	int deltax = abs(coor.at(id1)[0] - coor.at(id2)[0]);
+	int deltay = abs(coor.at(id1)[1] - coor.at(id2)[1]);
 	int deltaz = 0; //no cost in same PLD block
 	return deltax + deltay + deltaz;
 }
@@ -94,25 +97,23 @@ int getPlacementCost(std::vector<std::vector<int>> &coordinates, std::vector<PLD
 	return cost / 2; //removing twice calculated costs
 }
 
-void swap(std::vector<std::vector<int>> &coordinates, int pos1[], int pos2[]){
+void softSwap(std::vector<std::vector<int>> &coordinates, int pos1[], int pos2[]){
+
 	int id1 = grid[pos1[0]][pos1[1]][pos1[2]];
 	int id2 = grid[pos2[0]][pos2[1]][pos2[2]];
-	grid[pos1[0]][pos1[1]][pos1[2]] = -1;
-	grid[pos2[0]][pos2[1]][pos2[2]] = -1;
-	if (id1<0 && id2<0)
+	if ((id1<0 && id2<0) || (pos1[0] == pos2[0] && pos1[1] == pos2[1] && pos1[2] == pos2[2])) //both empty and same coordinate check
 		return;
 	else{
+		//coordinate swapping
 		if (id1 != -1){
-			coordinates[id1][0] = pos2[0];
-			coordinates[id1][1] = pos2[1];
-			coordinates[id1][2] = pos2[2];
-			grid[pos2[0]][pos2[1]][pos2[2]] = id1;
+			coordinates.at(id1)[0] = pos2[0];
+			coordinates.at(id1)[1] = pos2[1];
+			coordinates.at(id1)[2] = pos2[2];
 		}
 		if (id2 != -1){
-			coordinates[id2][0] = pos1[0];
-			coordinates[id2][1] = pos1[1];
-			coordinates[id2][2] = pos1[2];
-			grid[pos1[0]][pos1[1]][pos1[2]] = id2;
+			coordinates.at(id2)[0] = pos1[0];
+			coordinates.at(id2)[1] = pos1[1];
+			coordinates.at(id2)[2] = pos1[2];
 		}
 	}
 }
@@ -120,10 +121,8 @@ void swap(std::vector<std::vector<int>> &coordinates, int pos1[], int pos2[]){
 void SA(std::vector<PLD> &PLD_array, std::vector<std::vector<int>> &coordinates, std::map<std::string, int> &portHashMap, std::multimap<int, int> &PortPLDHashMap, double temp, double coolingRate, int iterations){
 	// Initialize intial solution
 	initCoordinates(coordinates, PLD_array.size());
-
 	// Init best placement
 	std::vector<std::vector<int>> best(coordinates);
-
 	int bestCost = getPlacementCost(best, PLD_array, PortPLDHashMap);
 	printf("Initial Solution Cost: %d\n", bestCost);
 	// Loop until system has cooled
@@ -137,6 +136,8 @@ void SA(std::vector<PLD> &PLD_array, std::vector<std::vector<int>> &coordinates,
 			if (counter == 0){
 				++fraction;
 				printf("%d%%...\n", fraction * 10);
+				printf("Cost till this step %d\n", getPlacementCost(coordinates, PLD_array, PortPLDHashMap));
+				printf("Temperature: %f, iteration: %d\n", temp, iter);
 			}
 			
 			//get a temporary vector
@@ -153,23 +154,26 @@ void SA(std::vector<PLD> &PLD_array, std::vector<std::vector<int>> &coordinates,
 				Pos2[0] = (int)(rand() % XLIM);
 				Pos2[1] = (int)(rand() % YLIM);
 				Pos2[2] = (int)(rand() % INDEX);
-				if (Pos1[0] != Pos2[0] || Pos1[1] != Pos2[1] || Pos1[2] != Pos2[2]){ //both coordinates to be swapped are not same!
-					if (grid[Pos1[0]][Pos1[1]][Pos1[2]] > 0 || grid[Pos2[0]][Pos2[1]][Pos2[2]] > 0) //atleast one of the coordinate picked must have a device registered
+				if (!(Pos1[0] == Pos2[0] && Pos1[1] == Pos2[1] && Pos1[2] == Pos2[2])){ //both coordinates to be swapped are not same!
+					if (grid[Pos1[0]][Pos1[1]][Pos1[2]] >= 0 || grid[Pos2[0]][Pos2[1]][Pos2[2]] >= 0) //atleast one of the coordinate picked must have a device registered
 						break;
 				}
 			}
-			// Swap random places
-			swap(coordinates, Pos1, Pos2);
+			// soft swap random places. Does not modify grid array
+			softSwap(temporary, Pos1, Pos2);
 
 			// Get energy of solutions
 			int E1 = getPlacementCost(temporary, PLD_array, PortPLDHashMap);
 			int E2 = getPlacementCost(coordinates, PLD_array, PortPLDHashMap);
-
 			// Decide if we should accept the neighbour
-			if (!(acceptanceProbability(E1, E2, temp) > (rand() * 1.0) / RAND_MAX)) {
-				coordinates = temporary; //undo the move
+			if ((acceptanceProbability(E1, E2, temp) > (rand() * 1.0) / RAND_MAX)) {
+				//keep the solution
+				//hard effecting grid array
+				int tempID = grid[Pos1[0]][Pos1[1]][Pos1[2]];
+				grid[Pos1[0]][Pos1[1]][Pos1[2]] = grid[Pos2[0]][Pos2[1]][Pos2[2]];
+				grid[Pos2[0]][Pos2[1]][Pos2[2]] = tempID;
+				coordinates = temporary; 
 			}
-
 			// Keep track of the best solution found
 			if (E1 < bestCost) {
 				best = temporary;
@@ -180,4 +184,9 @@ void SA(std::vector<PLD> &PLD_array, std::vector<std::vector<int>> &coordinates,
 		temp = temp*(1 - coolingRate);
 	}
 	printf("Final solution Cost: %d\n", bestCost);
+	print("\n\nPrinting final placed coordinates..\n\n");
+	for (int i = 0; i < coordinates.size(); i++){
+		printf("ID: %d (%d, %d, %d) %d\n", i, coordinates.at(i)[0], coordinates.at(i)[1], coordinates.at(i)[2], grid[coordinates.at(i)[0]][coordinates.at(i)[1]][coordinates.at(i)[2]]);
+	}
+	printf("\n\n Time elapsed: ");
 }
